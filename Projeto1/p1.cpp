@@ -1,19 +1,13 @@
 #include <iostream>
 #include <vector>
-#include <chrono>
 using namespace std;
 
 int x, y;
-vector<vector<int>> price;
-vector<vector<int>> maxPrice;
-int minRows, minColumns;
-int max = 0;
+vector<vector<int>> v;
 
 void parseDimensions() {
     scanf("%d %d", &x, &y);
-    price = vector<vector<int>>(x, vector<int>(y, 0));
-    maxPrice = vector<vector<int>>(x, vector<int>(y, -1));
-    minRows = x, minColumns = y;
+    v = vector<vector<int>>(x + 1, vector<int>(y + 1, 0));
 }
 
 void parsePrice() {
@@ -22,48 +16,30 @@ void parsePrice() {
     for (int k = 0; k < n; k++) {
         int i, j, p;
         scanf("%d %d %d", &i, &j, &p);
-        price[i - 1][j - 1] = p;
-        // if (minRows > i)
-            minRows = i;
-        if (minColumns > j)
-            minColumns = j;
+        if (i <= x && j <= y) {
+            v[i][j] = p;
+            if (j <= x && i <= y)
+                v[j][i] = p;
+        }
     }
 }
 
-int computeMaxValue(int m, int n) {
-    // if (m < minRows || n < minColumns)
-    //     maxPrice[m - 1][n - 1] = 0;
-    if (maxPrice[m - 1][n - 1] >= 0)
-        return maxPrice[m - 1][n - 1];
-    int maxValue = price[m - 1][n - 1];
-    for (int i = 1; i <= m/2; i++) {
-        int value = computeMaxValue(i, n) + computeMaxValue(m - i, n);
-        if (maxValue < value)
-            maxValue = value;
-    }
-    for (int j = 1; j <= n/2; j++) {
-        int value = computeMaxValue(m, j) + computeMaxValue(m, n - j);
-        if (maxValue < value)
-            maxValue = value;
-    }
-    maxPrice[m - 1][n - 1] = maxValue;
-    return maxValue;
-}
-
-void printMaxValue() {
-    printf("%d\n", computeMaxValue(x, y));
+void computeMaxValue() {
+    for (int i = 1; i <= x; i++)
+        for (int j = 1; j <= y; j++) {
+            for (int k = 1; k < i/2 + 1; k++)
+                v[i][j] = max(v[i][j], v[k][j] + v[i - k][j]);
+            for (int k = 1; k < j/2 + 1; k++)
+                v[i][j] = max(v[i][j], v[i][k] + v[i][j - k]);
+        }
 }
 
 int main() {
-    auto start = chrono::high_resolution_clock::now();
 
     parseDimensions();
     parsePrice();
-    printMaxValue();
-
-    auto end = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
-    cout << "Time taken: " << duration.count() << " milliseconds" << endl;
+    computeMaxValue();
+    printf("%d\n", v[x][y]);
 
     return 0;
 }

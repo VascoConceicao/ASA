@@ -1,173 +1,215 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <stack>
+#include <queue>
+#include <chrono>
 using namespace std;
 
 int v, e;
 vector<vector<int>> g;
 vector<vector<int>> gT;
+vector<int> order;
+int res;
+
+const int WHITE = 0;
+const int GREY = 1;
+const int BLACK = 2;
 
 void parseDimensions() {
     scanf("%d %d", &v, &e);
     g = vector<vector<int>>(v + 1);
-    g = vector<vector<int>>(v + 1);
+    gT = vector<vector<int>>(v + 1);
 }
 
 void parseEdges() {
-    for (int i = 0; i < e; i++) {
-        int o, d;
-        scanf("%d %d", &o, &d);
-        g[o].push_back(d);
+    for (int n = 1; n <= e; n++) {
+        int i, j;
+        scanf("%d %d", &i, &j);
+        g[i].push_back(j);
+        gT[j].push_back(i);
     }
 }
 
-void swap(vector<int> *v, int p1, int p2) {
-    int aux = (*v)[p1];
-    (*v)[p1] = (*v)[p2];
-    (*v)[p2] = aux;
-}
-
-void insertionSort(vector<int> *adj, vector<int> orderIndexed) {
-    for (int i = (*adj).size() - 1; i > 0; i--) {
-        if (orderIndexed[(*adj)[i - 1]] > orderIndexed[(*adj)[i]])
-            swap(adj, i, i - 1);
-        else
-            break;
-    }
-}
-
-vector<vector<int>> transposeGraph(vector<vector<int>> g, vector<int> orderIndexed) {
-    vector<vector<int>> gT = vector<vector<int>>(v + 1);
-    for (int o = 1; o <= v; o++) {
-        int size = g[o].size();
-        for (int d = 0; d < size; d++) {
-            gT[g[o][d]].push_back(o);
-            insertionSort(&gT[g[o][d]], orderIndexed);
+int DFSVisit(vector<vector<int>> &g, vector<int> &colors, vector<int> &jumps, int i) {  
+    int max = 0;
+    stack<int> s;
+    s.push(i);
+    while (!s.empty()) {
+        int j = s.top();
+        s.pop();
+        if (colors[j] == WHITE) {
+            colors[j] = GREY;
+            s.push(j);
+            int size = g[j].size();
+            for (int k = 0; k < size; k++) {
+                if (colors[g[j][k]] == WHITE) {
+                    s.push(g[j][k]);
+                } else if (colors[g[j][k]] == BLACK && max < jumps[g[j][k]] + 1) {
+                    max = jumps[g[j][k]] + 1;
+                }
+            }
+        } else if (colors[j] == GREY) {
+            if (jumps[j] > max)
+                max = jumps[j];
+            jumps[j] = max;
+            order.push_back(j);
+            colors[j] = BLACK;
         }
     }
-    return gT;
+    return max;
 }
 
-int DFSvisit(vector<vector<int>> g, int i, int time, vector<int> *color, vector<int> *pi, vector<int> *d, vector<int> *f, vector<int> *newOrder, vector<int> *orderIndexed) {
-    (*color)[i] = 1;
-    time++;
-    (*d)[i] = time;
-    int size = g[i].size();
-    for (int j = 0; j < size; j++) 
-        if ((*color)[g[i][j]] == 0) {
-            (*pi)[g[i][j]] = i;
-            time = DFSvisit(g, g[i][j], time, color, pi, d, f, newOrder, orderIndexed);
-        }
-    (*color)[i] = 2;
-    time++;
-    (*f)[i] = time;
-    (*orderIndexed)[i] = (*newOrder).size();
-    (*newOrder).push_back(i);
-    return time;
+void firstDFS() {
+    order = vector<int>();
+    vector<int> jumps = vector<int>(v + 1, 0);
+    vector<int> colors = vector<int>(v + 1, 0);
+    for (int i = 1; i <= v; i++)
+        DFSVisit(g, colors, jumps, i);
 }
 
-vector<int> DFS(vector<vector<int>> g, vector<int> *order, vector<int> *orderIndexed) {
-    vector<int> color = vector<int>(v + 1, 0);
-    vector<int> d = vector<int>(v + 1, 0);
-    vector<int> f = vector<int>(v + 1, 0);
-    vector<int> newOrder = vector<int>(1, 0);
-    vector<int> pi = vector<int>(v + 1, 0);
-    for (int i = 1; i < v + 1; i++) {
-    int size = g[i].size();
-    vector<int> aux;
-    for (int j = 0; j < size; j++) {
-        aux.push_back(g[i][j]);
-        insertionSort(&aux, *orderIndexed);
+void secondDFS() {
+    vector<int> jumps = vector<int>(v + 1, 0);
+    vector<int> colors = vector<int>(v + 1, 0);
+    while (order.size() != 0) {
+        res = max(res, DFSVisit(gT, colors, jumps, order.back()));
+        order.pop_back();
     }
-    g[i] = aux;
-    }
-    int size1 = g.size();
-    for (int i = 1; i < size1; i++)
-        pi[i] = i;
-    int time = 0;
+}
+
+vector<int> dfs(const vector<vector<int>>* g, vector<int>* order) {
+    vector<int> newOrder;
+    newOrder.reserve(v + 1);
+    newOrder.push_back(0);
+    vector<int> parents = vector<int>(v + 1, 0);
+    vector<bool> visited(v + 1, false);
+    stack<pair<int, int>> s;
+
     for (int i = v; i > 0; i--) {
-        if (color[(*order)[i]] == 0)
-            time = DFSvisit(g, (*order)[i], time, &color, &pi, &d, &f, &newOrder, orderIndexed);
+        int start = (*order)[i];
+        if (!visited[start]) {
+            s.push({start, 0});
+            parents[start] = start;
+
+            while (!s.empty()) {
+                int current = s.top().first;
+                int& neighbor = s.top().second;
+
+                if (!visited[current]) 
+                    visited[current] = true;
+
+                int size = (*g)[current].size();
+                while (neighbor < size && visited[(*g)[current][neighbor]])
+                    ++neighbor;
+
+                if (neighbor < size) {
+                    int next = (*g)[current][neighbor++];
+                    parents[next] = current;
+                    s.push({next, 0});
+                }
+                else {
+                    newOrder.push_back(current);
+                    s.pop();
+                }
+            }
+        }
     }
     *order = newOrder;
-    return pi;
+    return parents;
 }
 
 void append2Root(vector<int> *pi) {
     int size = (*pi).size();
-    for (int i = 1; i < size; i++) {
+    for (int i = 1; i < size; ++i) {
         int j = i;
-        for (; j != (*pi)[j]; j = (*pi)[j]);
+        while (j != (*pi)[j])
+            j = (*pi)[j];
         (*pi)[i] = j;
     }
 }
 
-void graphRoot(vector<int> pi) {
+void graphRoot(vector<int> *pi) {
     for (int i = 1; i < v + 1; i++) {
-        if (pi[i] != i) 
+        if ((*pi)[i] != i) 
             while (!g[i].empty()) {
                 int k = 0;
                 int found = 0;
-                int size = g[pi[i]].size();
+                int size = g[(*pi)[i]].size();
+                if ((*pi)[g[i][g[i].size() - 1]] == (*pi)[i])
+                    found = 1;
                 while (k < size && !found) {
-                    if (g[pi[i]][k] == g[i][g[i].size() - 1] || g[i][g[i].size() - 1] == pi[i])
-                        found = 1;
+                    if (g[(*pi)[i]][k] == g[i][g[i].size() - 1])
+                        found = 1; 
                     k++;
                 }
                 if (!found)
-                    g[pi[i]].push_back(g[i][g[i].size() - 1]);
+                    g[(*pi)[i]].push_back((*pi)[g[i][g[i].size() - 1]]);
                 g[i].pop_back();
             }
         else {
             int size = g[i].size();
-            for (int j = 0; j < size; j++) {
-                g[i][j] = pi[g[i][j]];
-            }
+            for (int j = 0; j < size; j++)
+                if (i == (*pi)[g[i][j]]) {
+                    g[i].erase(g[i].begin() + j);
+                    size --;
+                    j--;
+                }
+                else 
+                    g[i][j] = (*pi)[g[i][j]];
         }
     }
-    for (int i = 1; i < v + 1; i++)
-        unique(g[i].begin(), g[i].end());
+}
+
+int findMaxSteps(vector<vector<int>> *g) {
+    vector<int> incomingEdges(v + 1, 0);
+    vector<int> steps(v + 1, 0);
+
+    for (int i = 1; i < v + 1; ++i)
+        for (int j : (*g)[i]) 
+            ++incomingEdges[j];
+
+    queue<int> topological;
+    for (int i = 1; i < v + 1; ++i)
+        if (incomingEdges[i] == 0) {
+            topological.push(i);
+            steps[i] = 1;
+        }
+
+    int maxSteps = 0;
+    while (!topological.empty()) {
+        int current = topological.front();
+        topological.pop();
+
+        for (int neighbor : (*g)[current]) {
+            --incomingEdges[neighbor]; 
+            steps[neighbor] = max(steps[neighbor], steps[current] + 1);
+            if (steps[neighbor] > maxSteps) 
+                maxSteps = steps[neighbor];
+            if (incomingEdges[neighbor] == 0)
+                topological.push(neighbor);
+        }
+    }
+
+    return (maxSteps == 0) ? 0 : maxSteps - 1;
 }
 
 int main() {
-
     parseDimensions();
     parseEdges();
-    vector<int> order(v + 1, 0);
-    for (int i = 1; i <= v; i++)
-        order[i] = order.size() - i;
-    vector<int> orderIndexed(v + 1, 0);
-    DFS(g, &order, &orderIndexed);
-    gT = transposeGraph(g, orderIndexed);
-    vector<int> pi = vector<int>(v + 1, 0);
-    pi = DFS(gT, &order, &orderIndexed);
-    append2Root(&pi);
-    graphRoot(pi);
-    int max = 0;
-    for (int i = 1; i <= v; i++)
-        order[i] = order.size() - i;
-    vector<int> orderCopy3(order.size());
-    copy(order.begin(), order.end(), orderCopy3.begin());
-    for (int i = 1; i <= v; i++) {
-        vector<int> orderCopy1(order.size());
-        vector<int> orderCopy2(order.size());
-        copy(order.begin(), order.end(), orderCopy1.begin());
-        copy(orderCopy3.begin(), orderCopy3.end(), orderCopy2.begin());
-        pi = DFS(g, &order, &orderCopy3);
-        int size = pi.size();
-        for (int k = 1; k < size; k++) {
-            int l = 0;
-            int j = k;
-            for (; j != pi[j]; j = pi[j])
-                l++;
-            if (l > max)
-                max = l;
-        }
-        order = orderCopy1;
-        orderCopy3 = orderCopy2;
-        swap(&order, v - i, v);
-        swap(&orderCopy3, 1, i + 1);
+    if (v >= 35) {
+        firstDFS();
+        secondDFS();
+        printf("%d\n", res);
     }
-    printf("%d\n", max);
-
+    else {
+        vector<int> order(v + 1, 0);
+        for (int i = 1; i <= v; i++)
+            order[i] = v - i + 1;
+        vector<int> parents = vector<int>(v + 1, 0);
+        dfs(&g, &order);
+        parents = dfs(&gT, &order);
+        append2Root(&parents);
+        graphRoot(&parents);
+        printf("%d\n", findMaxSteps(&g));
+    }
 }
